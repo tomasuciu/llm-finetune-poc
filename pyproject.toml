@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "llm-finetune-poc"
+version = "0.0.1"
+description = "Multi-node LLM fine-tuning for function calling on Nebius AI Cloud"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "Apache-2.0"}
+dependencies = [
+    "torch>=2.1.0",
+    "transformers>=4.36.0",
+    "datasets>=2.16.0",
+    "accelerate>=0.25.0",
+]
+
+[project.scripts]
+llm-train = "llm_trainer.cli:train_cli"
+
+[tool.setuptools.packages.find]
+where = ["src"]
