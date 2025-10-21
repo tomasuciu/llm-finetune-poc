@@ -6,9 +6,20 @@ from torch.distributed.fsdp import (
     FullyShardedDataParallel as FSDP
 )
 import transformers
+from transformers import (
+    TrainingArguments,
+    Trainer,
+)
 from torch.distributed.fsdp.wrap import (
     transformer_auto_wrap_policy,
     size_based_auto_wrap_policy,
+)
+from torch.distributed.fsdp import (
+    FullyShardedDataParallel as FSDP,
+    MixedPrecision,
+    BackwardPrefetch,
+    ShardingStrategy,
+    CPUOffload,
 )
 from torch.distributed.elastic.multiprocessing.errors import record
 
@@ -41,6 +52,9 @@ def main():
     model = FSDP(
         model,
         auto_wrap_policy=auto_wrap_policy,
+        mixed_precision=mixed_precision_policy,
+        backward_prefetch=BackwardPrefetch.BACKWARD_PRE,
+        sharding_strategy=ShardingStrategy.FULL_SHARD,
         device_id=torch.cuda.current_device(),
         limit_all_gathers=True,
     )
