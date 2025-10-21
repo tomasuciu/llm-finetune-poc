@@ -8,6 +8,7 @@ from torch.distributed.fsdp import (
 import transformers
 from transformers import (
     TrainingArguments,
+    HfArgumentParser,
     Trainer,
 )
 from torch.distributed.fsdp.wrap import (
@@ -23,9 +24,19 @@ from torch.distributed.fsdp import (
 )
 from torch.distributed.elastic.multiprocessing.errors import record
 
+from llm_finetune_poc.arguments import (
+    ModelConfig,
+    DataConfig,
+    TrainingConfig,
+)
+
 
 
 def main():
+
+    parser = HfArgumentParser((ModelConfig, DataConfig, TrainingConfig))
+    model_args, data_args, training_args = parser.parse_args_into_dataclasses()
+
     if not dist.is_initialized():
         dist.init_process_group(backend="nccl")
     
