@@ -1,4 +1,5 @@
 import os
+import logging
 
 import torch
 import torch.distributed as dist
@@ -10,6 +11,8 @@ from transformers import (
     TrainingArguments,
     HfArgumentParser,
     Trainer,
+    AutoModelForCausalLM,
+
 )
 from torch.distributed.fsdp.wrap import (
     transformer_auto_wrap_policy,
@@ -30,12 +33,22 @@ from llm_finetune_poc.arguments import (
     TrainingArguments,
 )
 
+# Configure logging
+logging.basicConfig(
+    format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+    level=logging.INFO,
+)
+logger = logging.getLogger(__name__)
 
 
 def main():
 
     parser = HfArgumentParser((ModelArguments, DataArguments, TrainingArguments))
     model_args, data_args, training_args = parser.parse_args_into_dataclasses()
+
+    transformers.set_seed(training_args.seed)
+
 
     print(model_args)
 
@@ -52,11 +65,36 @@ def main():
     print(f"Rank {global_rank}/{world_size}, Local rank: {local_rank}")
 
     if global_rank == 0:
-        # TODO: create experiment, if tracking
-        pass
+        logger.info("=" * 80)
+        logger.info("Training Configuration:")
+        logger.info("=" * 80)
+        logger.info(f"Model: {model_args.model_name_or_path}")
+        logger.info(f"Dataset: {data_args.dataset_name}")
+        logger.info(f"Output: {training_args.output_dir}")
+        logger.info(f"Epochs: {training_args.num_train_epochs}")
+        logger.info(f"Batch size per device: {training_args.per_device_train_batch_size}")
+        logger.info(f"Gradient accumulation: {training_args.gradient_accumulation_steps}")
+        logger.info(f"Learning rate: {training_args.learning_rate}")
+        logger.info(f"World size: {world_size}")
+        effective_batch_size = (
+            training_args.per_device_train_batch_size * 
+            training_args.gradient_accumulation_steps * 
+            world_size
+        )
+        logger.info(f"Effective batch size: {effective_batch_size}")
+        logger.info("=" * 80)
 
     # select oss weights for fine-tuning
-    model = None
+    model = AutoModelForCausalLM.from_pretrained(
+        model_args.model_name_or_path,
+        torch_dtype=torch.bfloat16 if training_args.bf16 else torch.float32,
+        attn_implementation="flash_attention_2" if model_args.use_flash_attention_2 else None,
+        trust_remote_code=True,
+    )
+    
+    # Enable gradient checkpointing for memory efficiency
+    #if training_args.gradient_checkpointing:
+    #    model.gradient_checkpointing_enable()
     exit(1)
 
     auto_wrap_policy = size_based_auto_wrap_policy(
