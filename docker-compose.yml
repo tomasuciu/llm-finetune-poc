@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  training:
+    image: nebius/llm-finetune-poc:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    runtime: nvidia
+    shm_size: '64gb'
+    ipc: host
+    #volumes:
+    #  - .:/workspace/training
+    #  - /mnt/training-data:/mnt/training-data
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              capabilities: [gpu]
+    command: sleep infinity
