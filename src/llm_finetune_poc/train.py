@@ -25,20 +25,22 @@ from torch.distributed.fsdp import (
 from torch.distributed.elastic.multiprocessing.errors import record
 
 from llm_finetune_poc.arguments import (
-    ModelConfig,
-    DataConfig,
-    TrainingConfig,
+    ModelArguments,
+    DataArguments,
+    TrainingArguments,
 )
 
 
 
 def main():
 
-    parser = HfArgumentParser((ModelConfig, DataConfig, TrainingConfig))
+    parser = HfArgumentParser((ModelArguments, DataArguments, TrainingArguments))
     model_args, data_args, training_args = parser.parse_args_into_dataclasses()
 
-    if not dist.is_initialized():
-        dist.init_process_group(backend="nccl")
+    print(model_args)
+
+    #if not dist.is_initialized():
+    #    dist.init_process_group(backend="nccl")
     
     local_rank = int(os.environ.get("LOCAL_RANK", 0))
     global_rank = int(os.environ.get("RANK", 0))
@@ -55,6 +57,7 @@ def main():
 
     # select oss weights for fine-tuning
     model = None
+    exit(1)
 
     auto_wrap_policy = size_based_auto_wrap_policy(
         min_num_params=1e8
