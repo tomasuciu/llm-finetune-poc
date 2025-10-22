@@ -42,6 +42,10 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+def prepare_dataset():
+    pass
+
+
 def main():
 
     parser = HfArgumentParser((ModelArguments, DataArguments, TrainingArguments))
@@ -59,7 +63,10 @@ def main():
     global_rank = int(os.environ.get("RANK", 0))
     world_size = int(os.environ.get("WORLD_SIZE", 1))
     
-    torch.cuda.set_device(local_rank)
+    # init process group if not already done
+    if local_rank != -1 and not dist.is_initialized():
+        torch.cuda.set_device(local_rank)
+        dist.init_process_group(backend="nccl")
     
     # TODO: standardize logging
     print(f"Rank {global_rank}/{world_size}, Local rank: {local_rank}")
@@ -76,6 +83,7 @@ def main():
         logger.info(f"Gradient accumulation: {training_args.gradient_accumulation_steps}")
         logger.info(f"Learning rate: {training_args.learning_rate}")
         logger.info(f"World size: {world_size}")
+
         effective_batch_size = (
             training_args.per_device_train_batch_size * 
             training_args.gradient_accumulation_steps * 
@@ -93,9 +101,8 @@ def main():
     )
     
     # Enable gradient checkpointing for memory efficiency
-    #if training_args.gradient_checkpointing:
-    #    model.gradient_checkpointing_enable()
-    exit(1)
+    if training_args.gradient_checkpointing:
+        model.gradient_checkpointing_enable()
 
     auto_wrap_policy = size_based_auto_wrap_policy(
         min_num_params=1e8
