@@ -1,5 +1,6 @@
 import os
 import logging
+import functools
 
 import torch
 import torch.distributed as dist
@@ -12,8 +13,9 @@ from transformers import (
     HfArgumentParser,
     Trainer,
     AutoModelForCausalLM,
-
+    AutoTokenizer,
 )
+from datasets import load_dataset
 from torch.distributed.fsdp.wrap import (
     transformer_auto_wrap_policy,
     size_based_auto_wrap_policy,
@@ -42,8 +44,100 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def prepare_dataset():
-    pass
+def setup_model_and_tokenizer(model_args: ModelArguments, training_args: TrainingArguments):
+    
+    tokenizer = AutoTokenizer.from_pretrained(
+        model_args.tokenizer_name or model_args.model_name_or_path,
+        trust_remote_code=True,
+        use_fast=True,
+    )
+    
+    # pad token if not present
+    if tokenizer.pad_token is None:
+        tokenizer.pad_token = tokenizer.eos_token
+        tokenizer.pad_token_id = tokenizer.eos_token_id
+    
+    logger.info(f"Loading model: {model_args.model_name_or_path}")
+    model = AutoModelForCausalLM.from_pretrained(
+        model_args.model_name_or_path,
+        torch_dtype=torch.bfloat16 if training_args.bf16 else torch.float32,
+        attn_implementation="flash_attention_2" if model_args.use_flash_attention_2 else None,
+        trust_remote_code=True,
+    )
+    
+    # Enable gradient checkpointing for memory efficiency
+    if training_args.gradient_checkpointing:
+        model.gradient_checkpointing_enable()
+
+        # This is important for gradient checkpointing to work properly
+        model.config.use_cache = False
+    
+    return model, tokenizer
+
+
+def prepare_dataset(
+    data_args: DataArguments,
+    tokenizer: AutoTokenizer,
+    max_seq_length: int,
+):
+    logger.info(f"Loading dataset: {data_args.dataset_name}")
+    
+    try:
+        # Load dataset
+        dataset = load_dataset(
+            data_args.dataset_name,
+            split=data_args.dataset_split,
+            trust_remote_code=True,
+        )
+        
+        logger.info(f"Dataset loaded: {len(dataset)} examples")
+        
+        # Create train/validation split
+        if data_args.validation_split_percentage > 0:
+            split_dataset = dataset.train_test_split(
+                test_size=data_args.validation_split_percentage / 100,
+                seed=42,
+            )
+            train_dataset = split_dataset["train"]
+            eval_dataset = split_dataset["test"]
+        else:
+            train_dataset = dataset
+            eval_dataset = None
+        
+        logger.info("Preprocessing dataset...")
+        
+        preprocess_fn = functools.partial(
+            preprocess_function_calling_dataset,
+            tokenizer=tokenizer,
+            max_seq_length=max_seq_length,
+        )
+        
+        train_dataset = train_dataset.map(
+            preprocess_fn,
+            batched=True,
+            num_proc=data_args.preprocessing_num_workers,
+            remove_columns=train_dataset.column_names,
+            desc="Tokenizing training data",
+        )
+        
+        if eval_dataset is not None:
+            eval_dataset = eval_dataset.map(
+                preprocess_fn,
+                batched=True,
+                num_proc=data_args.preprocessing_num_workers,
+                remove_columns=eval_dataset.column_names,
+                desc="Tokenizing validation data",
+            )
+        
+        logger.info(f"Training examples: {len(train_dataset)}")
+        if eval_dataset:
+            logger.info(f"Validation examples: {len(eval_dataset)}")
+        
+        return train_dataset, eval_dataset
+        
+    except Exception as e:
+        logger.error(f"Error loading dataset: {e}")
+        raise
 
 
 def main():
@@ -52,12 +146,6 @@ def main():
     model_args, data_args, training_args = parser.parse_args_into_dataclasses()
 
     transformers.set_seed(training_args.seed)
-
-
-    print(model_args)
-
-    #if not dist.is_initialized():
-    #    dist.init_process_group(backend="nccl")
     
     local_rank = int(os.environ.get("LOCAL_RANK", 0))
     global_rank = int(os.environ.get("RANK", 0))
@@ -91,6 +179,13 @@ def main():
         )
         logger.info(f"Effective batch size: {effective_batch_size}")
         logger.info("=" * 80)
+
+     try:
+        model, tokenizer = setup_model_and_tokenizer(model_args, training_args)
+        logger.info("Model and tokenizer loaded successfully")
+    except Exception as e:
+        logger.error(f"Failed to load model: {e}")
+        raise
 
     # select oss weights for fine-tuning
     model = AutoModelForCausalLM.from_pretrained(
