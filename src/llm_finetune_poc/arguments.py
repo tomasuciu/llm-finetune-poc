@@ -49,11 +49,47 @@ class DataArguments:
         metadata={"help": "Number of processes to use for data preprocessing"}
     )
 
+
+@dataclass
+class DistributedArguments:
+    process_group_timeout: float = field(
+        default=10,
+        metadata={"help": "Time at which process group will terminate in the event of inactivity"}
+    )
+
+    # Elastic training configuration
+    enable_elastic_training: bool = field(
+        default=False,
+        metadata={"help": "Enable elastic training with dynamic world size support"}
+    )
+    elastic_checkpoint_interval: int = field(
+        default=1000,
+        metadata={"help": "Steps between full elastic checkpoints (0 to disable periodic saves)"}
+    )
+    elastic_min_nodes: int = field(
+        default=1,
+        metadata={"help": "Minimum number of nodes for elastic training"}
+    )
+    elastic_max_nodes: int = field(
+        default=8,
+        metadata={"help": "Maximum number of nodes for elastic training"}
+    )
+    elastic_save_on_resize: bool = field(
+        default=True,
+        metadata={"help": "Automatically save elastic checkpoint when world size changes"}
+    )
+    elastic_checkpoint_dir: Optional[str] = field(
+        default=None,
+        metadata={"help": "Directory for elastic checkpoints (defaults to output_dir/elastic)"}
+    )
+
+
+
 @dataclass
 class CustomTrainingArguments(TrainingArguments):
     """
     Extended TrainingArguments with custom options.
-    Inherits all standard HuggingFace TrainingArguments!
+    Inherits all standard HuggingFace TrainingArguments.
     """
     output_dir: str = field(
         default="/mnt/training-data/checkpoints",
@@ -88,8 +124,15 @@ class CustomTrainingArguments(TrainingArguments):
         metadata={"help": "Number of steps used for a linear warmup from 0 to learning_rate"}
     )
     save_steps: int = field(
-        default=500,
+        default=300,
         metadata={"help": "Save checkpoint every X updates steps"}
+    )
+    save_total_limit: int = field(
+        default=3,
+    )
+    save_on_each_node: bool = field(
+        default=False,
+        metadata={"help": "Save checkpoint on each node"}
     )
     eval_steps: int = field(
         default=500,

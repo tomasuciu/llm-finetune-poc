@@ -18,31 +18,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel
-# todo: add flashattn to pyproject
-RUN pip install --no-cache-dir flash-attn --no-build-isolation
 
-WORKDIR /workspace
+WORKDIR /workspace/llm-finetune-poc
 COPY pyproject.toml .
+COPY src ./src
 
-# core deps; handle in pyproject.toml
-RUN pip install --no-cache-dir \
-    torch>=2.1.0 \
-    transformers>=4.36.0 \
-    datasets>=2.16.0 \
-    accelerate>=0.25.0 \
-    sentencepiece \
-    protobuf \
-    peft \
-    bitsandbytes \
-    wandb \
-    tensorboard
+# install the llm_finetune_poc package
+RUN pip install --no-cache-dir .
 
 COPY src /workspace/llm-finetune-poc/src
 
 # Install the package
 RUN pip install -e /workspace/llm-finetune-poc
 
-# Create directories for data and checkpoints
+# Create directories for data and checkpoints; TODO: revise
 RUN mkdir -p /mnt/training-data/checkpoints /mnt/training-data/cache
 
 # Set HuggingFace cache directory

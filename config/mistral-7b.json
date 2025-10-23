@@ -1,0 +1,46 @@
+{
+  "model_name_or_path": "mistralai/Mistral-7B-v0.1",
+  "tokenizer_name": null,
+  "use_flash_attention_2": true,
+  "max_seq_length": 2048,
+  
+  "dataset_name": "glaiveai/glaive-function-calling-v2",
+  "dataset_split": "train",
+  "validation_split_percentage": 5,
+  "preprocessing_num_workers": 8,
+  
+  "output_dir": "/mnt/training-data/checkpoints/mistral-7b-function-calling",
+  "num_train_epochs": 1,
+  "per_device_train_batch_size": 4,
+  "per_device_eval_batch_size": 4,
+  "gradient_accumulation_steps": 4,
+  
+  "learning_rate": 2e-5,
+  "weight_decay": 0.01,
+  "warmup_steps": 100,
+  "lr_scheduler_type": "cosine",
+  
+  "bf16": true,
+  "gradient_checkpointing": true,
+  
+  "save_steps": 500,
+  "save_total_limit": 3,
+  "eval_steps": 500,
+  "eval_strategy": "steps",
+  "logging_steps": 10,
+  "logging_dir": "/mnt/training-data/checkpoints/mistral-7b-function-calling/logs",
+  
+  "load_best_model_at_end": true,
+  "metric_for_best_model": "eval_loss",
+  "greater_is_better": false,
+  
+  "dataloader_num_workers": 4,
+  "dataloader_pin_memory": true,
+  "ddp_backend": "nccl",
+  "ddp_find_unused_parameters": false,
+  
+  "run_name": "mistral-7b-test",
+  "seed": 42,
+  
+  "remove_unused_columns": false
+}

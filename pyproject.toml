@@ -5,15 +5,17 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "llm-finetune-poc"
 version = "0.0.1"
-description = "Multi-node LLM fine-tuning for function calling on Nebius AI Cloud"
+description = "Multi-node multi-device LLM fine-tuning for function calling on Nebius AI Cloud"
 readme = "README.md"
 requires-python = ">=3.10"
-license = {text = "Apache-2.0"}
 dependencies = [
-    "torch>=2.1.0",
-    "transformers>=4.36.0",
-    "datasets>=2.16.0",
-    "accelerate>=0.25.0",
+    "torch==2.9.0",
+    "transformers==4.57.1",
+    "datasets==4.2.0",
+    "accelerate==1.11.0",
+    "flash-attn==2.8.3",
+    "numpy==2.2.6",
+    "PyYAML==6.0.3",
 ]
 
 [project.scripts]
